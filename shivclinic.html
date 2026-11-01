@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shiv Clinic - Medical Records</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://apis.google.com/js/api.js"></script>
+    <script src="https://accounts.google.com/gsi/client"></script>
+    <style>
+        /* Custom scrollbar for table if it overflows on mobile */
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #111; 
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #DAA520; 
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #FFD700; 
+        }
+        /* Input autofill styling for dark mode */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus, 
+        input:-webkit-autofill:active{
+            -webkit-box-shadow: 0 0 0 30px #1a1a1a inset !important;
+            -webkit-text-fill-color: #FFD700 !important;
+        }
+    </style>
+</head>
+<body class="bg-black text-[#FFD700] font-sans min-h-screen">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 z-50 transform transition-all duration-300 translate-y-[-150%] opacity-0 bg-gray-900 border border-[#DAA520] text-[#FFD700] px-4 py-3 rounded shadow-lg max-w-sm">
+        <div class="flex items-center">
+            <svg id="toastIcon" class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span id="toastMessage">Notification message</span>
+        </div>
+    </div>
+
+    <!-- Login Container -->
+    <div id="loginContainer" class="min-h-screen flex flex-col items-center justify-center p-4">
+        <div class="bg-[#111] border border-[#DAA520] rounded-xl p-8 shadow-[0_0_15px_rgba(218,165,32,0.15)] w-full max-w-md text-center">
+            <h1 class="text-4xl font-bold tracking-wider uppercase mb-2 drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">Shiv Clinic</h1>
+            <p class="text-[#DAA520] mb-8 text-lg">Staff Portal Login</p>
+            
+            <form id="loginForm" class="space-y-5 text-left">
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-300" for="username">Username</label>
+                    <input type="text" id="username" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-3 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1 text-gray-300" for="password">Password</label>
+                    <input type="password" id="password" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-3 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                </div>
+                <button type="submit" class="w-full bg-[#DAA520] hover:bg-[#FFD700] text-black font-bold py-3 px-4 rounded-md transition-all duration-200 transform hover:scale-[1.02] mt-4 shadow-lg shadow-[#DAA520]/20">
+                    Sign In
+                </button>
+            </form>
+            <div id="loginError" class="text-red-500 text-sm mt-4 hidden bg-red-900/20 border border-red-900 p-2 rounded">
+                Invalid username or password.
+            </div>
+            <div class="mt-6 text-xs text-gray-500 text-left bg-[#1a1a1a] p-4 rounded-lg border border-gray-800">
+                <p class="text-[#DAA520] mb-1 font-semibold uppercase tracking-wider">Demo Credentials:</p>
+                <div class="flex justify-between border-b border-gray-800 pb-1 mb-1"><span>Admin:</span> <span>admin / admin123</span></div>
+                <div class="flex justify-between border-b border-gray-800 pb-1 mb-1"><span>Consultant:</span> <span>consultant / consultant123</span></div>
+                <div class="flex justify-between"><span>Dr. Rutvik:</span> <span>rutvik3129@gmail.com / Rutvik@12345</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div id="appContainer" class="hidden max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+        
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-center mb-10 border-b border-[#DAA520]/30 pb-6">
+            <div class="text-center md:text-left mb-4 md:mb-0">
+                <h1 class="text-3xl md:text-4xl font-bold tracking-wider uppercase mb-1 drop-shadow-[0_0_10px_rgba(255,215,0,0.5)]">Shiv Clinic</h1>
+                <p class="text-[#DAA520] text-sm">Patient Medical Data Portal</p>
+                <div id="authStatus" class="mt-1 text-xs text-gray-400">Connecting to secure database...</div>
+            </div>
+            <div class="flex items-center space-x-6">
+                <div class="text-right hidden sm:block">
+                    <p class="text-xs text-gray-400">Logged in as:</p>
+                    <p id="currentUserDisplay" class="text-[#FFD700] font-bold capitalize tracking-wide">Admin</p>
+                </div>
+                <button id="logoutBtn" class="bg-gray-900 hover:bg-red-900 hover:text-white hover:border-red-700 text-gray-300 px-4 py-2 rounded-md transition-colors border border-gray-700 text-sm flex items-center shadow-md">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+                    Logout
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="flex space-x-4 mb-8 border-b border-gray-800 pb-2">
+            <button id="navDataManagement" class="text-[#DAA520] font-semibold border-b-2 border-[#DAA520] pb-2 px-4 transition-colors">Data Management</button>
+            <button id="navDoctorProfile" class="text-gray-400 hover:text-[#FFD700] pb-2 px-4 transition-colors border-b-2 border-transparent">Doctor Profile</button>
+        </div>
+
+        <!-- Doctor Profile Section -->
+        <div id="doctorProfileSection" class="hidden bg-[#111] border border-[#DAA520] rounded-xl p-8 shadow-[0_0_15px_rgba(218,165,32,0.15)] max-w-3xl mx-auto">
+            <h2 class="text-2xl font-semibold mb-6 border-b border-[#DAA520] pb-2">Doctor Profile Settings</h2>
+            <form id="profileForm" class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Doctor Name</label>
+                        <input type="text" id="profName" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700]">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Specialization</label>
+                        <input type="text" id="profSpec" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700]">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Contact Number</label>
+                        <input type="tel" id="profContact" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700]">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Email Address</label>
+                        <input type="email" id="profEmail" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700]">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Clinic Address</label>
+                        <textarea id="profAddress" rows="2" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] resize-none"></textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1 text-gray-300">Professional Bio / Notes</label>
+                        <textarea id="profBio" rows="4" class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] resize-none"></textarea>
+                    </div>
+                </div>
+                <button type="submit" id="saveProfileBtn" class="w-full bg-[#DAA520] hover:bg-[#FFD700] text-black font-bold py-3 px-4 rounded-md transition-all duration-200 transform hover:scale-[1.02]">
+                    Save Profile Information
+                </button>
+            </form>
+        </div>
+
+        <!-- Data Management Section -->
+        <div id="dataManagementSection" class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Left Column: Add Patient Form -->
+            <div class="lg:col-span-1">
+                <div class="bg-[#111] border border-[#DAA520] rounded-xl p-6 shadow-[0_0_15px_rgba(218,165,32,0.15)]">
+                    <h2 class="text-2xl font-semibold mb-6 border-b border-[#DAA520] pb-2">New Patient Record</h2>
+                    
+                    <form id="patientForm" class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="patientName">Patient Name</label>
+                            <input type="text" id="patientName" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="patientAge">Age</label>
+                                <input type="number" id="patientAge" min="0" max="150" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="patientDate">Date</label>
+                                <input type="date" id="patientDate" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="patientContact">Contact Number</label>
+                                <input type="tel" id="patientContact" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="patientCost">Consultation Cost (₹)</label>
+                                <input type="number" id="patientCost" min="0" step="0.01" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="amountPaid">Amount Paid (₹)</label>
+                                <input type="number" id="amountPaid" min="0" step="0.01" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="paymentMethod">Method</label>
+                                <select id="paymentMethod" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                                    <option value="Cash">Cash</option>
+                                    <option value="UPI">UPI</option>
+                                    <option value="Card">Card</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium mb-1" for="paymentStatus">Status</label>
+                                <select id="paymentStatus" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                                    <option value="Fully Paid">Fully Paid</option>
+                                    <option value="Partial">Partial</option>
+                                    <option value="Pending">Pending</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="text-right text-sm text-gray-400">
+                            Balance Due: <span id="balanceDueDisplay" class="text-[#DAA520] font-bold">₹0.00</span>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="patientDiagnosis">Diagnosis</label>
+                            <input type="text" id="patientDiagnosis" list="commonDiagnosis" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors">
+                            <datalist id="commonDiagnosis">
+                                <option value="Viral Fever"></option>
+                                <option value="Hypertension"></option>
+                                <option value="Type 2 Diabetes Mellitus"></option>
+                                <option value="Upper Respiratory Tract Infection"></option>
+                                <option value="Gastroenteritis"></option>
+                            </datalist>
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium mb-1" for="patientMeds">Prescription / Medications</label>
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                <button type="button" class="quick-med-btn bg-gray-800 text-[#DAA520] text-xs px-2 py-1 rounded border border-gray-700 hover:bg-gray-700 hover:text-[#FFD700] transition-colors" data-med="Paracetamol 500mg (1-1-1)">Paracetamol 500mg</button>
+                                <button type="button" class="quick-med-btn bg-gray-800 text-[#DAA520] text-xs px-2 py-1 rounded border border-gray-700 hover:bg-gray-700 hover:text-[#FFD700] transition-colors" data-med="Amoxicillin 500mg (1-0-1)">Amoxicillin 500mg</button>
+                                <button type="button" class="quick-med-btn bg-gray-800 text-[#DAA520] text-xs px-2 py-1 rounded border border-gray-700 hover:bg-gray-700 hover:text-[#FFD700] transition-colors" data-med="Pantoprazole 40mg (1-0-0) AC">Pantoprazole 40mg</button>
+                            </div>
+                            <textarea id="patientMeds" rows="4" required class="w-full bg-[#1a1a1a] border border-gray-700 rounded-md px-3 py-2 text-[#FFD700] focus:outline-none focus:border-[#FFD700] focus:ring-1 focus:ring-[#FFD700] transition-colors resize-none"></textarea>
+                        </div>
+
+                        <button type="submit" id="submitBtn" disabled class="w-full bg-[#DAA520] hover:bg-[#FFD700] text-black font-bold py-3 px-4 rounded-md transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed mt-4">
+                            Save Record
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Column: Dashboard / Table -->
+            <div class="lg:col-span-2">
+                
+                <!-- REVENUE WIDGET -->
+                <div id="revenueWidgetWrapper" class="bg-[#111] border border-[#DAA520] rounded-xl p-4 mb-6 shadow-[0_0_15px_rgba(218,165,32,0.15)] flex justify-between items-center transition-all duration-300">
+                    <div>
+                        <h3 class="text-gray-400 text-sm font-medium uppercase tracking-wider">Total Revenue Collected</h3>
+                        <p class="text-3xl font-bold text-[#FFD700]" id="totalRevenueDisplay">₹0.00</p>
+                    </div>
+                    <div class="p-3 bg-[#1a1a1a] rounded-full border border-gray-700">
+                        <svg class="w-8 h-8 text-[#DAA520]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    </div>
+                </div>
+
+                <div class="bg-[#111] border border-[#DAA520] rounded-xl p-6 shadow-[0_0_15px_rgba(218,165,32,0.15)] h-full flex flex-col">
+                    <div class="flex justify-between items-center mb-6 border-b border-[#DAA520] pb-2">
+                        <h2 class="text-2xl font-semibold">Patient Dashboard</h2>
+                        <div class="flex items-center space-x-4">
+                            <button id="exportPdfBtn" class="bg-blue-900/50 hover:bg-blue-800 border border-blue-500 text-blue-200 px-3 py-1.5 rounded text-sm transition-colors flex items-center shadow-md">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                Export PDF
+                            </button>
+                            <button id="backupDriveBtn" class="bg-green-900/50 hover:bg-green-800 border border-green-500 text-green-200 px-3 py-1.5 rounded text-sm transition-colors flex items-center shadow-md">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                                Backup to Drive
+                            </button>
+                            <span id="recordCount" class="text-sm bg-gray-800 px-3 py-1 rounded-full border border-gray-700">0 Records</span>
+                        </div>
+                    </div>
+
+                    <!-- Loading State -->
+                    <div id="tableLoading" class="flex-1 flex justify-center items-center">
+                        <div class="animate-pulse text-[#DAA520] flex flex-col items-center">
+                            <svg class="animate-spin h-8 w-8 mb-4 text-[#FFD700]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            <p>Loading patient records...</p>
+                        </div>
+                    </div>
+
+                    <!-- Table Wrapper -->
+                    <div id="tableContainer" class="hidden flex-1 overflow-x-auto custom-scrollbar rounded-lg border border-gray-800">
+                        <table class="min-w-full divide-y divide-gray-800 text-sm">
+                            <thead class="bg-[#1a1a1a]">
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Date</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Patient Name</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Age</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Contact</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Diagnosis</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Cost</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Paid</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Status</th>
+                                    <th scope="col" class="px-4 py-3 text-left font-medium tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="patientTableBody" class="divide-y divide-gray-800 bg-[#0a0a0a]">
+                                <!-- Rows populated by JS -->
+                            </tbody>
+                        </table>
+                        
+                        <!-- Empty State -->
+                        <div id="emptyState" class="hidden p-8 text-center text-gray-500">
+                            <svg class="mx-auto h-12 w-12 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                            <p>No patient records found.</p>
+                            <p class="text-sm mt-1">Add a new record to see it here.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div> <!-- End of Data Management Section -->
+    </div>
+
+    <!-- Modal for viewing full prescription -->
+    <div id="viewModal" class="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="bg-[#111] border border-[#DAA520] rounded-xl p-6 max-w-lg w-full transform scale-95 transition-transform duration-300" id="viewModalContent">
+            <div class="flex justify-between items-start mb-4 border-b border-[#DAA520] pb-3">
+                <h3 class="text-xl font-bold text-[#FFD700]" id="modalTitle">Patient Details</h3>
+                <button id="closeModalBtn" class="text-gray-400 hover:text-white transition-colors">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div class="space-y-3 text-gray-300">
+                <div>
+                    <strong class="text-[#DAA520] block mb-1">Diagnosis:</strong> 
+                    <div id="modalDiagnosis" class="bg-[#1a1a1a] p-3 rounded border border-gray-800"></div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <p><strong class="text-[#DAA520]">Total Cost:</strong> <span id="modalCost"></span></p>
+                    <p><strong class="text-[#DAA520]">Paid:</strong> <span id="modalPaid"></span></p>
+                    <p><strong class="text-[#DAA520]">Method:</strong> <span id="modalMethod"></span></p>
+                    <p><strong class="text-[#DAA520]">Status:</strong> <span id="modalStatus"></span></p>
+                    <p class="col-span-2"><strong class="text-[#DAA520]">Balance Due:</strong> <span id="modalBalance" class="text-red-400 font-bold"></span></p>
+                </div>
+                <div>
+                    <strong class="text-[#DAA520] block mb-1">Prescription / Medications:</strong>
+                    <div id="modalMeds" class="bg-[#1a1a1a] p-3 rounded border border-gray-800"></div>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end">
+                <button id="closeModalBottomBtn" class="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded transition-colors border border-gray-600">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN APPLICATION SCRIPT -->
+    <script type="module">
+        // 1. FIREBASE BROWSER IMPORTS (Fixed to work directly in HTML)
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, getDoc, setDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // 2. YOUR FIREBASE CONFIGURATION (Hardcoded for your live app)
+        const firebaseConfig = {
+            apiKey: "AIzaSyBgNH2DPTQ04QrWfGLUAuAZS8pVS4E0iwE",
+            authDomain: "shiv-clinic-portal.firebaseapp.com",
+            projectId: "shiv-clinic-portal",
+            storageBucket: "shiv-clinic-portal.firebasestorage.app",
+            messagingSenderId: "387557192698",
+            appId: "1:387557192698:web:f5b0b1219ef36713c6aa43",
+            measurementId: "G-52DL6GTLVM"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // --- GOOGLE DRIVE API CONFIGURATION ---
+        const CLIENT_ID = 'YOUR_CLIENT_ID_HERE';
+        const API_KEY = 'YOUR_API_KEY_HERE';
+        const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest';
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+        // --------------------------------------
+        
+        // --- ENCRYPTION SETUP ---
+        const E2E_SECRET = "shiv-clinic-master-key"; 
+        
+        function encryptData(text) {
+            if (!text) return "";
+            return CryptoJS.AES.encrypt(text.toString(), E2E_SECRET).toString();
+        }
+
+        function decryptData(ciphertext) {
+            if (!ciphertext) return "";
+            try {
+                const bytes = CryptoJS.AES.decrypt(ciphertext, E2E_SECRET);
+                const decryptedStr = bytes.toString(CryptoJS.enc.Utf8);
+                return decryptedStr || ciphertext; 
+            } catch (e) {
+                return ciphertext;
+            }
+        }
+        // ------------------------
+
+        // Global state and UI elements
+        let userId = null;
+        let patientRecords = [];
+        let unsubscribe = null;
+        
+        // DOM Elements
+        const form = document.getElementById('patientForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const authStatus = document.getElementById('authStatus');
+        const tableBody = document.getElementById('patientTableBody');
+        const tableLoading = document.getElementById('tableLoading');
+        const tableContainer = document.getElementById('tableContainer');
+        const emptyState = document.getElementById('emptyState');
+        const recordCount = document.getElementById('recordCount');
+        const totalRevenueDisplay = document.getElementById('totalRevenueDisplay');
+        const toast = document.getElementById('toast');
+        const toastMessage = document.getElementById('toastMessage');
+        const toastIcon = document.getElementById('toastIcon');
+
+        // Login & App UI Elements
+        const loginContainer = document.getElementById('loginContainer');
+        const appContainer = document.getElementById('appContainer');
+        const loginForm = document.getElementById('loginForm');
+        const loginError = document.getElementById('loginError');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const revenueWidgetWrapper = document.getElementById('revenueWidgetWrapper');
+        const currentUserDisplay = document.getElementById('currentUserDisplay');
+        
+        // Navigation & Profile UI Elements
+        const navDataManagement = document.getElementById('navDataManagement');
+        const navDoctorProfile = document.getElementById('navDoctorProfile');
+        const dataManagementSection = document.getElementById('dataManagementSection');
+        const doctorProfileSection = document.getElementById('doctorProfileSection');
+        const profileForm = document.getElementById('profileForm');
+        const saveProfileBtn = document.getElementById('saveProfileBtn');
+        const exportPdfBtn = document.getElementById('exportPdfBtn');
+        const backupDriveBtn = document.getElementById('backupDriveBtn');
+
+        let currentUserRole = null;
+
+        // Modal Elements
+        const viewModal = document.getElementById('viewModal');
+        const viewModalContent = document.getElementById('viewModalContent');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const closeModalBottomBtn = document.getElementById('closeModalBottomBtn');
+
+        // Set default date to today
+        document.getElementById('patientDate').valueAsDate = new Date();
+
+        // Auto-calculate balance
+        const costInput = document.getElementById('patientCost');
+        const paidInput = document.getElementById('amountPaid');
+        const statusSelect = document.getElementById('paymentStatus');
+        const balanceDisplay = document.getElementById('balanceDueDisplay');
+
+        function updateBalance() {
+            const cost = parseFloat(costInput.value) || 0;
+            const paid = parseFloat(paidInput.value) || 0;
+            const balance = Math.max(0, cost - paid);
+            balanceDisplay.textContent = `₹${balance.toFixed(2)}`;
+            
+            if (balance === 0 && cost > 0 && paid > 0) {
+                statusSelect.value = "Fully Paid";
+            } else if (paid > 0 && balance > 0) {
+                statusSelect.value = "Partial";
+            } else if (paid === 0 && cost > 0) {
+                statusSelect.value = "Pending";
+            }
+        }
+
+        costInput.addEventListener('input', updateBalance);
+        paidInput.addEventListener('input', updateBalance);
+
+        // Quick Meds logic
+        document.querySelectorAll('.quick-med-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const medInput = document.getElementById('patientMeds');
+                const val = medInput.value;
+                const newVal = e.target.dataset.med;
+                medInput.value = val ? val + '\n' + newVal : newVal;
+            });
+        });
+
+        // Login & Role Management Logic
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const u = document.getElementById('username').value.trim();
+            const p = document.getElementById('password').value.trim();
+
+            if (u === 'admin' && p === 'admin123') {
+                currentUserRole = 'admin';
+                handleSuccessfulLogin();
+            } else if (u === 'consultant' && p === 'consultant123') {
+                currentUserRole = 'consultant';
+                handleSuccessfulLogin();
+            } else if (u === 'rutvik3129@gmail.com' && p === 'Rutvik@12345') {
+                currentUserRole = 'admin'; 
+                handleSuccessfulLogin();
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        });
+
+        function handleSuccessfulLogin() {
+            loginError.classList.add('hidden');
+            document.getElementById('username').value = '';
+            document.getElementById('password').value = '';
+            
+            loginContainer.classList.add('hidden');
+            appContainer.classList.remove('hidden');
+            
+            currentUserDisplay.textContent = currentUserRole;
+
+            if (currentUserRole === 'consultant') {
+                revenueWidgetWrapper.classList.add('hidden');
+            } else {
+                revenueWidgetWrapper.classList.remove('hidden');
+            }
+
+            loadDoctorProfile();
+        }
+
+        logoutBtn.addEventListener('click', () => {
+            appContainer.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            currentUserRole = null;
+            form.reset();
+            profileForm.reset();
+            updateBalance();
+            document.getElementById('patientDate').valueAsDate = new Date();
+            switchTab('dataManagement'); 
+        });
+
+        // --- Tabs Logic ---
+        function switchTab(tabName) {
+            if (tabName === 'dataManagement') {
+                dataManagementSection.classList.remove('hidden');
+                doctorProfileSection.classList.add('hidden');
+                
+                navDataManagement.classList.replace('text-gray-400', 'text-[#DAA520]');
+                navDataManagement.classList.replace('border-transparent', 'border-[#DAA520]');
+                navDataManagement.classList.remove('hover:text-[#FFD700]');
+
+                navDoctorProfile.classList.replace('text-[#DAA520]', 'text-gray-400');
+                navDoctorProfile.classList.replace('border-[#DAA520]', 'border-transparent');
+                navDoctorProfile.classList.add('hover:text-[#FFD700]');
+            } else if (tabName === 'doctorProfile') {
+                dataManagementSection.classList.add('hidden');
+                doctorProfileSection.classList.remove('hidden');
+                
+                navDoctorProfile.classList.replace('text-gray-400', 'text-[#DAA520]');
+                navDoctorProfile.classList.replace('border-transparent', 'border-[#DAA520]');
+                navDoctorProfile.classList.remove('hover:text-[#FFD700]');
+
+                navDataManagement.classList.replace('text-[#DAA520]', 'text-gray-400');
+                navDataManagement.classList.replace('border-[#DAA520]', 'border-transparent');
+                navDataManagement.classList.add('hover:text-[#FFD700]');
+            }
+        }
+
+        navDataManagement.addEventListener('click', () => switchTab('dataManagement'));
+        navDoctorProfile.addEventListener('click', () => switchTab('doctorProfile'));
+
+
+        // --- Profile DB Logic ---
+        async function loadDoctorProfile() {
+            if (!userId || !db) return;
+            try {
+                const profileRef = doc(db, 'profiles', userId);
+                const docSnap = await getDoc(profileRef);
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    document.getElementById('profName').value = decryptData(data.name) || '';
+                    document.getElementById('profSpec').value = decryptData(data.specialization) || '';
+                    document.getElementById('profContact').value = decryptData(data.contact) || '';
+                    document.getElementById('profEmail').value = decryptData(data.email) || '';
+                    document.getElementById('profAddress').value = decryptData(data.address) || '';
+                    document.getElementById('profBio').value = decryptData(data.bio) || '';
+                }
+            } catch (error) {
+                console.error("Error loading profile:", error);
+            }
+        }
+
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!userId || !db) {
+                showToast("System not connected.", true);
+                return;
+            }
+            
+            saveProfileBtn.disabled = true;
+            saveProfileBtn.textContent = 'Saving...';
+            
+            try {
+                const profileRef = doc(db, 'profiles', userId);
+                await setDoc(profileRef, {
+                    name: encryptData(document.getElementById('profName').value.trim()),
+                    specialization: encryptData(document.getElementById('profSpec').value.trim()),
+                    contact: encryptData(document.getElementById('profContact').value.trim()),
+                    email: encryptData(document.getElementById('profEmail').value.trim()),
+                    address: encryptData(document.getElementById('profAddress').value.trim()),
+                    bio: encryptData(document.getElementById('profBio').value.trim()),
+                    updatedAt: new Date().toISOString()
+                });
+                showToast("Doctor profile updated successfully!");
+            } catch (error) {
+                console.error("Error saving profile:", error);
+                showToast("Failed to update profile.", true);
+            } finally {
+                saveProfileBtn.disabled = false;
+                saveProfileBtn.textContent = 'Save Profile Information';
+            }
+        });
+
+
+        // --- PDF Export Logic ---
+        exportPdfBtn.addEventListener('click', () => {
+            if (patientRecords.length === 0) {
+                showToast("No patient records to export.", true);
+                return;
+            }
+
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF('landscape'); 
+
+                doc.setFontSize(18);
+                doc.setTextColor(218, 165, 32); 
+                doc.text("Shiv Clinic - Secure Patient Records", 14, 22);
+                
+                doc.setFontSize(10);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Exported By: ${currentUserDisplay.textContent}  |  Generated on: ${new Date().toLocaleString()}`, 14, 30);
+
+                const tableColumn = ["Date", "Patient Name", "Age", "Contact", "Diagnosis", "Total Cost", "Paid", "Balance Due", "Status"];
+                const tableRows = [];
+
+                patientRecords.forEach(patient => {
+                    const cost = parseFloat(patient.cost) || 0;
+                    const paid = parseFloat(patient.amountPaid) || 0;
+                    const balance = Math.max(0, cost - paid);
+                    
+                    const patientData = [
+                        new Date(patient.date).toLocaleDateString(),
+                        patient.name,
+                        patient.age.toString(),
+                        patient.contact,
+                        patient.diagnosis,
+                        `Rs. ${cost.toFixed(2)}`,
+                        `Rs. ${paid.toFixed(2)}`,
+                        `Rs. ${balance.toFixed(2)}`,
+                        patient.paymentStatus || 'N/A'
+                    ];
+                    tableRows.push(patientData);
+                });
+
+                doc.autoTable({
+                    head: [tableColumn],
+                    body: tableRows,
+                    startY: 40,
+                    theme: 'grid',
+                    styles: { fontSize: 9, cellPadding: 3 },
+                    headStyles: { fillColor: [20, 20, 20], textColor: [218, 165, 32], fontStyle: 'bold' },
+                    alternateRowStyles: { fillColor: [245, 245, 245] }
+                });
+
+                doc.save('ShivClinic_Patient_Records.pdf');
+                showToast("PDF exported successfully!");
+
+            } catch (error) {
+                console.error("PDF Export Error:", error);
+                showToast("Failed to generate PDF document.", true);
+            }
+        });
+
+        // --- GOOGLE DRIVE BACKUP LOGIC ---
+        function tryInitGoogle() {
+            if (window.gapi && !gapiInited) {
+                gapi.load('client', initializeGapiClient);
+            }
+            if (window.google && window.google.accounts && !gisInited) {
+                initializeGisClient();
+            }
+        }
+
+        async function initializeGapiClient() {
+            try {
+                if (API_KEY === 'YOUR_API_KEY_HERE') return;
+                await gapi.client.init({
+                    apiKey: API_KEY,
+                    discoveryDocs: [DISCOVERY_DOC],
+                });
+                gapiInited = true;
+            } catch (error) {
+                console.error('Error initializing GAPI client', error);
+            }
+        }
+
+        function initializeGisClient() {
+            if (CLIENT_ID === 'YOUR_CLIENT_ID_HERE') return;
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '', 
+            });
+            gisInited = true;
+        }
+
+        backupDriveBtn.addEventListener('click', () => {
+            if (patientRecords.length === 0) {
+                showToast("No patient records to backup.", true);
+                return;
+            }
+            if (CLIENT_ID === 'YOUR_CLIENT_ID_HERE' || API_KEY === 'YOUR_API_KEY_HERE') {
+                showToast("Please configure Google API credentials in the code.", true);
+                return;
+            }
+
+            tryInitGoogle();
+
+            if (!gapiInited || !gisInited) {
+                showToast("Google APIs are still loading or failed to initialize.", true);
+                return;
+            }
+
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    showToast("Authentication failed.", true);
+                    throw (resp);
+                }
+                await uploadToDrive();
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        });
+
+        async function uploadToDrive() {
+            try {
+                backupDriveBtn.disabled = true;
+                backupDriveBtn.innerHTML = '<svg class="animate-spin h-4 w-4 mr-2" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Backing up...';
+                
+                const backupData = JSON.stringify(patientRecords, null, 2);
+                const metadata = {
+                    'name': `ShivClinic_Backup_${new Date().toISOString().split('T')[0]}.json`,
+                    'mimeType': 'application/json'
+                };
+                
+                const boundary = '-------314159265358979323846';
+                const delimiter = "\r\n--" + boundary + "\r\n";
+                const close_delim = "\r\n--" + boundary + "--";
+
+                const multipartRequestBody =
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    JSON.stringify(metadata) +
+                    delimiter +
+                    'Content-Type: application/json\r\n\r\n' +
+                    backupData +
+                    close_delim;
+
+                const request = gapi.client.request({
+                    'path': '/upload/drive/v3/files',
+                    'method': 'POST',
+                    'params': {'uploadType': 'multipart'},
+                    'headers': {
+                        'Content-Type': 'multipart/related; boundary="' + boundary + '"'
+                    },
+                    'body': multipartRequestBody
+                });
+
+                request.execute(function(file) {
+                    if (file && file.id) {
+                        showToast("Successfully backed up to Google Drive!");
+                    } else {
+                        showToast("Failed to backup to Google Drive.", true);
+                    }
+                    resetBackupBtn();
+                });
+
+            } catch (error) {
+                console.error("Error uploading to Drive:", error);
+                showToast("Error during Drive backup process.", true);
+                resetBackupBtn();
+            }
+        }
+
+        function resetBackupBtn() {
+            backupDriveBtn.disabled = false;
+            backupDriveBtn.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg> Backup to Drive';
+        }
+
+        // Toast Notification System
+        let toastTimeout;
+        function showToast(message, isError = false) {
+            toastMessage.textContent = message;
+            
+            if (isError) {
+                toast.classList.replace('border-[#DAA520]', 'border-red-500');
+                toast.classList.replace('text-[#FFD700]', 'text-red-400');
+                toastIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
+            } else {
+                toast.classList.replace('border-red-500', 'border-[#DAA520]');
+                toast.classList.replace('text-red-400', 'text-[#FFD700]');
+                toastIcon.innerHTML = `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>`;
+            }
+
+            toast.classList.remove('translate-y-[-150%]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-150%]', 'opacity-0');
+            }, 4000);
+        }
+
+        // Initialize Firebase and Authentication
+        async function initializeAppSystem() {
+            try {
+                // Perform anonymous sign-in so Firestore allows read/write (if rules are set up for auth)
+                const userCredential = await signInAnonymously(auth);
+                userId = userCredential.user.uid;
+
+                authStatus.textContent = "Connected to secure database";
+                authStatus.classList.replace("text-gray-400", "text-green-500");
+                submitBtn.disabled = false;
+                
+                loadPatients();
+
+            } catch (error) {
+                console.error("Initialization error:", error);
+                authStatus.textContent = "Connection failed. Please refresh.";
+                authStatus.classList.add("text-red-500");
+                showToast("Failed to connect to database.", true);
+                tableLoading.innerHTML = `<p class="text-red-500">Failed to load data.</p>`;
+            }
+        }
+
+        // Load data from Firestore
+        function loadPatients() {
+            const patientsRef = collection(db, 'users', userId, 'patients');
+
+            unsubscribe = onSnapshot(patientsRef, (snapshot) => {
+                patientRecords = [];
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    patientRecords.push({ 
+                        id: doc.id,
+                        name: decryptData(data.name),
+                        age: decryptData(data.age),
+                        date: data.date, 
+                        contact: decryptData(data.contact),
+                        cost: parseFloat(decryptData(data.cost)) || 0,
+                        amountPaid: parseFloat(decryptData(data.amountPaid)) || 0,
+                        paymentMethod: decryptData(data.paymentMethod),
+                        paymentStatus: decryptData(data.paymentStatus),
+                        diagnosis: decryptData(data.diagnosis),
+                        medications: decryptData(data.medications),
+                        createdAt: data.createdAt
+                    });
+                });
+
+                // Sort in memory by date (newest first)
+                patientRecords.sort((a, b) => new Date(b.date) - new Date(a.date));
+                renderTable();
+            }, (error) => {
+                console.error("Snapshot error:", error);
+                showToast("Error syncing database.", true);
+            });
+        }
+
+        // Render Table UI
+        function renderTable() {
+            tableLoading.classList.add('hidden');
+            tableContainer.classList.remove('hidden');
+            
+            tableBody.innerHTML = '';
+            recordCount.textContent = `${patientRecords.length} Record${patientRecords.length !== 1 ? 's' : ''}`;
+
+            let totalRevenue = 0;
+
+            if (patientRecords.length === 0) {
+                emptyState.classList.remove('hidden');
+                tableBody.classList.add('hidden');
+                totalRevenueDisplay.textContent = '₹0.00';
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            tableBody.classList.remove('hidden');
+
+            patientRecords.forEach(patient => {
+                totalRevenue += (parseFloat(patient.amountPaid) || 0);
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-[#1a1a1a] transition-colors group";
+                
+                const dateObj = new Date(patient.date);
+                const formattedDate = dateObj.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+
+                let statusColor = "text-gray-400";
+                if (patient.paymentStatus === "Fully Paid") statusColor = "text-green-500";
+                if (patient.paymentStatus === "Partial") statusColor = "text-yellow-500";
+                if (patient.paymentStatus === "Pending") statusColor = "text-red-500";
+
+                tr.innerHTML = `
+                    <td class="px-4 py-3 whitespace-nowrap text-gray-300">${formattedDate}</td>
+                    <td class="px-4 py-3 font-medium text-[#FFD700]">${escapeHTML(patient.name)}</td>
+                    <td class="px-4 py-3 text-gray-300">${escapeHTML(patient.age.toString())}</td>
+                    <td class="px-4 py-3 text-gray-300">${escapeHTML(patient.contact)}</td>
+                    <td class="px-4 py-3 text-gray-300 truncate max-w-[150px]" title="${escapeHTML(patient.diagnosis)}">${escapeHTML(patient.diagnosis)}</td>
+                    <td class="px-4 py-3 font-medium text-[#DAA520]">₹${escapeHTML(patient.cost?.toString() || '0')}</td>
+                    <td class="px-4 py-3 text-gray-300">₹${escapeHTML(patient.amountPaid?.toString() || '0')}</td>
+                    <td class="px-4 py-3 ${statusColor} font-medium">${escapeHTML(patient.paymentStatus || 'N/A')}</td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <button class="view-btn text-[#DAA520] hover:text-[#FFD700] mr-3 transition-colors" data-id="${patient.id}" title="View Details">
+                            <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        </button>
+                        <button class="delete-btn text-gray-600 hover:text-red-500 transition-colors opacity-50 group-hover:opacity-100" data-id="${patient.id}" title="Delete Record">
+                            <svg class="w-5 h-5 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            });
+
+            totalRevenueDisplay.textContent = `₹${totalRevenue.toFixed(2)}`;
+
+            document.querySelectorAll('.view-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => openModal(e.currentTarget.dataset.id));
+            });
+            document.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => deleteRecord(e.currentTarget.dataset.id));
+            });
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!userId || !db) {
+                showToast("System not connected to database.", true);
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Saving...";
+
+            const newPatient = {
+                name: encryptData(document.getElementById('patientName').value.trim()),
+                age: encryptData(parseInt(document.getElementById('patientAge').value).toString()),
+                date: document.getElementById('patientDate').value,
+                contact: encryptData(document.getElementById('patientContact').value.trim()),
+                cost: encryptData((parseFloat(document.getElementById('patientCost').value) || 0).toString()),
+                amountPaid: encryptData((parseFloat(document.getElementById('amountPaid').value) || 0).toString()),
+                paymentMethod: encryptData(document.getElementById('paymentMethod').value),
+                paymentStatus: encryptData(document.getElementById('paymentStatus').value),
+                diagnosis: encryptData(document.getElementById('patientDiagnosis').value.trim()),
+                medications: encryptData(document.getElementById('patientMeds').value.trim()),
+                createdAt: new Date().toISOString()
+            };
+
+            try {
+                const patientsRef = collection(db, 'users', userId, 'patients');
+                await addDoc(patientsRef, newPatient);
+                
+                showToast("Patient record saved successfully!");
+                form.reset();
+                document.getElementById('patientDate').valueAsDate = new Date(); 
+                updateBalance(); 
+            } catch (error) {
+                console.error("Error adding document: ", error);
+                showToast(`Database Error: ${error.message}`, true);
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Save Record";
+            }
+        });
+
+        async function deleteRecord(docId) {
+            if (!userId || !db) return;
+            try {
+                const docRef = doc(db, 'users', userId, 'patients', docId);
+                await deleteDoc(docRef);
+                showToast("Record deleted.");
+            } catch (error) {
+                console.error("Error deleting document:", error);
+                showToast("Failed to delete record.", true);
+            }
+        }
+
+        function openModal(docId) {
+            const patient = patientRecords.find(p => p.id === docId);
+            if (!patient) return;
+
+            const cost = parseFloat(patient.cost) || 0;
+            const paid = parseFloat(patient.amountPaid) || 0;
+            const balance = Math.max(0, cost - paid);
+
+            const diagItems = patient.diagnosis.split(',').filter(d => d.trim()).map(d => `<li>${escapeHTML(d.trim())}</li>`).join('');
+            const medItems = patient.medications.split('\n').filter(m => m.trim()).map(m => `<li>${escapeHTML(m.trim())}</li>`).join('');
+
+            document.getElementById('modalTitle').textContent = `${patient.name} (${patient.age} yrs) - ${patient.date}`;
+            document.getElementById('modalDiagnosis').innerHTML = `<ul class="list-disc pl-5">${diagItems || '<li>None</li>'}</ul>`;
+            document.getElementById('modalCost').textContent = `₹${cost}`;
+            document.getElementById('modalPaid').textContent = `₹${paid}`;
+            document.getElementById('modalMethod').textContent = patient.paymentMethod || 'N/A';
+            document.getElementById('modalStatus').textContent = patient.paymentStatus || 'N/A';
+            document.getElementById('modalBalance').textContent = `₹${balance.toFixed(2)}`;
+            document.getElementById('modalMeds').innerHTML = `<ul class="list-decimal pl-5 space-y-1">${medItems || '<li>None</li>'}</ul>`;
+
+            viewModal.classList.remove('hidden');
+            setTimeout(() => {
+                viewModal.classList.remove('opacity-0');
+                viewModalContent.classList.remove('scale-95');
+            }, 10);
+        }
+
+        function closeModal() {
+            viewModal.classList.add('opacity-0');
+            viewModalContent.classList.add('scale-95');
+            setTimeout(() => {
+                viewModal.classList.add('hidden');
+            }, 300);
+        }
+
+        closeModalBtn.addEventListener('click', closeModal);
+        closeModalBottomBtn.addEventListener('click', closeModal);
+        viewModal.addEventListener('click', (e) => {
+            if (e.target === viewModal) closeModal();
+        });
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        window.addEventListener('DOMContentLoaded', initializeAppSystem);
+
+    </script>
+</body>
+</html>
